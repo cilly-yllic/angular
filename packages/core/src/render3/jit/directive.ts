@@ -7,7 +7,7 @@
  */
 
 import {getCompilerFacade, JitCompilerUsage, R3DirectiveMetadataFacade} from '../../compiler/compiler_facade';
-import {R3ComponentMetadataFacade, R3QueryMetadataFacade, R3UsedDeclarationKind, R3UsedDeclarationMetadata, R3UsedDirectiveMetadata, R3UsedNgModuleMetadata, R3UsedPipeMetadata} from '../../compiler/compiler_facade_interface';
+import {R3ComponentMetadataFacade, R3NgModuleMetadataFacade, R3QueryMetadataFacade, R3TemplateDependencyFacade, R3TemplateDependencyKind, R3UsedDeclarationKind} from '../../compiler/compiler_facade_interface';
 import {resolveForwardRef} from '../../di/forward_ref';
 import {getReflect, reflectDependencies} from '../../di/jit/util';
 import {Type} from '../../interface/type';
@@ -107,7 +107,7 @@ export function compileComponent(type: Type<any>, metadata: Component): void {
           }
         }
 
-        let declarations: R3UsedDeclarationMetadata[] = [];
+        let declarations: R3TemplateDependencyFacade[] = [];
         if (metadata.standalone && metadata.imports) {
           // Process imports.
           declarations = getStandaloneDependencies(flatten(metadata.imports));
@@ -165,8 +165,8 @@ export function compileComponent(type: Type<any>, metadata: Component): void {
   });
 }
 
-function getStandaloneDependencies(imports: Type<any>[]): R3UsedDeclarationMetadata[] {
-  const dependencies: R3UsedDeclarationMetadata[] = [];
+function getStandaloneDependencies(imports: Type<any>[]): R3TemplateDependencyFacade[] {
+  const dependencies: R3TemplateDependencyFacade[] = [];
   for (const rawDep of imports) {
     const dep = resolveForwardRef(rawDep);
     if (!dep) {
@@ -176,23 +176,23 @@ function getStandaloneDependencies(imports: Type<any>[]): R3UsedDeclarationMetad
     const ngModuleDef: NgModuleDef<any>|null = getNgModuleDef(dep);
     if (ngModuleDef) {
       dependencies.push({
-        kind: R3UsedDeclarationKind.NgModule,
+        kind: R3TemplateDependencyKind.NgModule,
         type: dep as any,
-      } as R3UsedNgModuleMetadata);
+      } as R3TemplateDependencyFacade);
 
       const scopes = transitiveScopesFor(ngModuleDef.type);
       for (const dir of scopes.exported.directives) {
         dependencies.push({
-          kind: R3UsedDeclarationKind.Directive,
+          kind: R3TemplateDependencyKind.Directive,
           type: dir,
-        } as R3UsedDirectiveMetadata);
+        } as R3TemplateDependencyFacade);
       }
 
       for (const dir of scopes.exported.pipes) {
         dependencies.push({
-          kind: R3UsedDeclarationKind.Pipe,
+          kind: R3TemplateDependencyKind.Pipe,
           type: dir,
-        } as R3UsedPipeMetadata);
+        } as R3TemplateDependencyFacade);
       }
     }
 
@@ -204,12 +204,10 @@ function getStandaloneDependencies(imports: Type<any>[]): R3UsedDeclarationMetad
         throw new Error(`What are you doing? You imported a non-standalone thing!`);
       }
 
-      dependencies.push(
-          {
-            kind: dirDef ? R3UsedDeclarationKind.Directive : R3UsedDeclarationKind.Pipe,
-            type: dep,
-          } as R3UsedDirectiveMetadata |
-          R3UsedPipeMetadata);
+      dependencies.push({
+        kind: dirDef ? R3TemplateDependencyKind.Directive : R3TemplateDependencyKind.Pipe,
+        type: dep,
+      } as R3TemplateDependencyFacade);
     }
   }
   return dependencies;
